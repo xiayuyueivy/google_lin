@@ -1,13 +1,20 @@
+import warnings
 import requests
 from bs4 import BeautifulSoup
 import streamlit as st
+
+warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/122.0.0.0 Safari/537.36"
-    )
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
 }
 
 MAIN_URL = "https://www.taisugar.com.tw/chinese/Attractions_detail.aspx?n=10048&s=191&p=0"
@@ -15,9 +22,11 @@ NEWS_URL = "https://www.taisugar.com.tw/chinese/News_Index.aspx?p=71&n=10052"
 
 
 def fetch_page(url):
-    resp = requests.get(url, headers=HEADERS, timeout=15)
-    resp.encoding = "utf-8"
+    resp = requests.get(url, headers=HEADERS, timeout=30, verify=False)
     resp.raise_for_status()
+    # 自動偵測編碼，優先使用 apparent_encoding
+    encoding = resp.apparent_encoding or "utf-8"
+    resp.encoding = encoding
     return BeautifulSoup(resp.text, "html.parser")
 
 
