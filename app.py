@@ -31,34 +31,46 @@ def fetch_page(url):
 
 
 def get_basic_info():
+    """只從主內容區塊 #cMainBlk 擷取各 h3 段落的重點資訊"""
     soup = fetch_page(MAIN_URL)
-    results = {}
-    time_keywords = ["營業時間", "開放時間", "休館", "暫停", "公休"]
-    for tag in soup.find_all(["p", "li", "td", "div", "span"]):
-        text = tag.get_text(strip=True)
-        if any(kw in text for kw in time_keywords) and len(text) < 200:
-            results.setdefault("營業時間與注意事項", []).append(text)
-    notice_keywords = ["注意", "公告", "提醒", "禁止", "暫停", "關閉", "停止", "停辦"]
-    for tag in soup.find_all(["p", "li", "td", "div"]):
-        text = tag.get_text(strip=True)
-        if any(kw in text for kw in notice_keywords) and 10 < len(text) < 300:
-            results.setdefault("公告與注意事項", []).append(text)
-    return results
+    main = soup.find(id="cMainBlk") or soup.body
+    sections = {}
+    for h3 in main.find_all("h3"):
+        title = h3.get_text(strip=True)
+        if not title:
+            continue
+        paragraphs = []
+        for sib in h3.find_next_siblings():
+            if sib.name == "h3":
+                break
+            text = sib.get_text(" ", strip=True)
+            if text and len(text) > 5:
+                paragraphs.append(text)
+        if paragraphs:
+            sections[title] = paragraphs
+    return sections
 
 
 def get_latest_news():
+    """解析台糖活動快遞，擷取每筆新聞的標題、日期、連結"""
     soup = fetch_page(NEWS_URL)
     news_items = []
     for a_tag in soup.find_all("a", href=True):
-        title = a_tag.get_text(strip=True)
         href = a_tag["href"]
-        if "月眉" in title or "yuemei" in href.lower():
-            full_url = (
-                "https://www.taisugar.com.tw" + href
-                if href.startswith("/")
-                else href
-            )
-            news_items.append({"標題": title, "連結": full_url})
+        if "News_detail" not in href:
+            continue
+        h3 = a_tag.find("h3")
+        p = a_tag.find("p")
+        title = h3.get_text(strip=True) if h3 else a_tag.get_text(strip=True)
+        date_summary = p.get_text(strip=True) if p else ""
+        if not title:
+            continue
+        full_url = (
+            "https://www.taisugar.com.tw/chinese/" + href.lstrip("./")
+            if not href.startswith("http")
+            else href
+        )
+        news_items.append({"標題": title, "摘要": date_summary, "連結": full_url})
     return news_items
 
 
@@ -118,22 +130,22 @@ if st.button("🔄 抓取最新公告"):
             news = get_latest_news()
 
             if info:
-                for section, items in info.items():
-                    st.markdown(f"**{section}**")
-                    seen = set()
-                    for item in items:
-                        if item not in seen:
-                            st.write(f"· {item}")
-                            seen.add(item)
+                for section, paragraphs in info.items():
+                    with st.expander(f"📌 {section}"):
+                        for p in paragraphs:
+                            st.write(p)
             else:
                 st.info("目前官網無特別公告。")
 
+            st.markdown("---")
+            st.markdown("**📰 台糖最新消息**")
             if news:
-                st.markdown("**最新消息**")
                 for n in news:
-                    st.markdown(f"· [{n['標題']}]({n['連結']})")
+                    st.markdown(f"**[{n['標題']}]({n['連結']})**")
+                    if n["摘要"]:
+                        st.caption(n["摘要"])
             else:
-                st.info("目前無月眉糖廠專屬最新公告。")
+                st.info("目前無最新消息。")
 
         except Exception as e:
             st.error(f"爬取失敗：{e}")
