@@ -2,6 +2,7 @@ import warnings
 import requests
 from bs4 import BeautifulSoup
 import streamlit as st
+import streamlit.components.v1 as components
 
 warnings.filterwarnings("ignore", message="Unverified HTTPS request")
 
@@ -75,7 +76,7 @@ def get_latest_news():
 
 
 # ── Streamlit UI ──────────────────────────────────────────
-st.set_page_config(page_title="月眉觀光糖廠旅遊資訊", page_icon="🏭", layout="centered")
+st.set_page_config(page_title="月眉觀光糖廠旅遊資訊", page_icon="🏭", layout="wide")
 
 st.title("🏭 月眉觀光糖廠旅遊資訊")
 st.caption("資料來源：台灣糖業公司官網")
@@ -121,31 +122,59 @@ with tab3:
 
 st.divider()
 
-# 即時爬蟲
-st.subheader("📢 即時公告與注意事項")
-if st.button("🔄 抓取最新公告"):
-    with st.spinner("爬取中，請稍候..."):
-        try:
-            info = get_basic_info()
-            news = get_latest_news()
+# 兩欄：左為即時公告，右為社群貼文
+left_col, right_col = st.columns([1, 1], gap="large")
 
-            if info:
-                for section, paragraphs in info.items():
-                    with st.expander(f"📌 {section}"):
-                        for p in paragraphs:
-                            st.write(p)
-            else:
-                st.info("目前官網無特別公告。")
+# ── 左欄：即時公告 ──────────────────────────────────────
+with left_col:
+    st.subheader("📢 即時公告與注意事項")
+    if st.button("🔄 抓取最新公告"):
+        with st.spinner("爬取中，請稍候..."):
+            try:
+                info = get_basic_info()
+                news = get_latest_news()
 
-            st.markdown("---")
-            st.markdown("**📰 台糖最新消息**")
-            if news:
-                for n in news:
-                    st.markdown(f"**[{n['標題']}]({n['連結']})**")
-                    if n["摘要"]:
-                        st.caption(n["摘要"])
-            else:
-                st.info("目前無最新消息。")
+                if info:
+                    for section, paragraphs in info.items():
+                        with st.expander(f"📌 {section}"):
+                            for p in paragraphs:
+                                st.write(p)
+                else:
+                    st.info("目前官網無特別公告。")
 
-        except Exception as e:
-            st.error(f"爬取失敗：{e}")
+                st.markdown("---")
+                st.markdown("**📰 台糖最新消息**")
+                if news:
+                    for n in news:
+                        st.markdown(f"**[{n['標題']}]({n['連結']})**")
+                        if n["摘要"]:
+                            st.caption(n["摘要"])
+                else:
+                    st.info("目前無最新消息。")
+
+            except Exception as e:
+                st.error(f"爬取失敗：{e}")
+
+# ── 右欄：Facebook 社群貼文 ──────────────────────────────
+with right_col:
+    st.subheader("📘 Facebook 最新貼文")
+    st.caption("台糖月眉觀光糖廠官方粉絲頁")
+    components.html(
+        """
+        <div id="fb-root"></div>
+        <script async defer crossorigin="anonymous"
+            src="https://connect.facebook.net/zh_TW/sdk.js#xfbml=1&version=v19.0">
+        </script>
+        <div class="fb-page"
+            data-href="https://www.facebook.com/TSCYUEMEI/"
+            data-tabs="timeline"
+            data-width="500"
+            data-height="700"
+            data-small-header="true"
+            data-adapt-container-width="true"
+            data-hide-cover="false"
+            data-show-facepile="false">
+        </div>
+        """,
+        height=720,
+    )
